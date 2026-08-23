@@ -5,7 +5,6 @@ import {
   User, 
   Shield, 
   Award, 
-  QrCode, 
   LogOut, 
   Coffee, 
   Sparkles, 
@@ -18,11 +17,7 @@ import {
   X
 } from 'lucide-react';
 
-interface StudentProfileProps {
-  onOpenQR: () => void;
-}
-
-export const StudentProfile: React.FC<StudentProfileProps> = ({ onOpenQR }) => {
+export const StudentProfile: React.FC = () => {
   const { user, logout, updateStudentPhone } = useAuth();
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [newPhone, setNewPhone] = useState(user?.phone || '');
@@ -102,13 +97,6 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ onOpenQR }) => {
             </p>
           </div>
 
-          <button
-            onClick={onOpenQR}
-            className="px-5 py-2.5 bg-[#3D2B1F] hover:bg-[#523B2B] text-amber-400 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2"
-          >
-            <QrCode className="w-4 h-4" />
-            <span>Show QR</span>
-          </button>
         </div>
 
         {/* Stats strip */}

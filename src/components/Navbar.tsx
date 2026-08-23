@@ -16,10 +16,9 @@ import type { UserRole } from '../types';
 
 interface NavbarProps {
   onOpenAuth: (initialTab?: 'student' | 'staff' | 'admin') => void;
-  onOpenQR: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
   const { 
     user, 
     role, 
@@ -114,18 +113,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
           </button>
         </div>
 
-        {/* Right Actions: QR trigger, User Profile, Switcher */}
+        {/* Right Actions: User Profile, Switcher */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {role === 'student' && (
-            <button
-              onClick={onOpenQR}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Show QR</span>
-            </button>
-          )}
-
           {user ? (
             <div className="relative">
               <button

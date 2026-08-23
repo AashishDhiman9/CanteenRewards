@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
-import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../context/AuthContext';
 import { dataService, type CoinSlab } from '../../services/dataService';
 import { formatCoins, formatINR } from '../../lib/utils';
-import { QrCode, Search, Sparkles, Check, AlertCircle, ArrowRight, UserCheck } from 'lucide-react';
+import { Search, Sparkles, Check, AlertCircle, ArrowRight, UserCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const StaffIssueCoins: React.FC = () => {
@@ -15,7 +13,6 @@ export const StaffIssueCoins: React.FC = () => {
   const [billAmount, setBillAmount] = useState<number | ''>(240);
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isScanningQr, setIsScanningQr] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -32,88 +29,6 @@ export const StaffIssueCoins: React.FC = () => {
     setSearchQuery(student.roll_no);
     setErrorMessage(null);
     setSuccessMessage(null);
-  };
-
-  const handleQrPayload = (payload: string) => {
-    try {
-      const parsed = JSON.parse(payload);
-      if (!parsed || parsed.type !== 'CAMPUS_CANTEEN_STUDENT_TOKEN') {
-        throw new Error('Invalid Campus Canteen Student QR');
-      }
-
-      if (!parsed.userId) {
-        throw new Error('Student ID missing from QR');
-      }
-
-      const match = availableUsers.find(
-        (u) => u.id === parsed.userId || u.roll_no.toLowerCase() === String(parsed.rollNo || '').toLowerCase()
-      );
-
-      if (!match) {
-        throw new Error('Student not found');
-      }
-
-      selectStudent(match);
-      return;
-    } catch (err: any) {
-      setSelectedStudent(null);
-      setErrorMessage(err?.message || 'Invalid Campus Canteen Student QR');
-      return;
-    }
-  };
-
-  const handleScanStudentQr = async () => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    console.log('SCAN BUTTON CLICKED');
-
-    if (!Capacitor.isNativePlatform()) {
-      console.log('STARTING QR SCANNER');
-      const pasted = window.prompt('Paste Campus Canteen Student QR JSON to continue');
-      if (!pasted) return;
-      handleQrPayload(pasted.trim());
-      return;
-    }
-
-    try {
-      console.log('STARTING QR SCANNER');
-      setIsScanningQr(true);
-      const supports = await BarcodeScanner.isSupported();
-      console.log('SCANNER SUPPORT:', supports?.supported ? 'supported' : 'unsupported');
-      if (!supports.supported) {
-        setErrorMessage('QR scanning is not supported on this device.');
-        return;
-      }
-
-      const permissions = await BarcodeScanner.checkPermissions();
-      console.log('CAMERA PERMISSION CHECKED:', permissions.camera);
-      if (permissions.camera !== 'granted') {
-        console.log('CAMERA PERMISSION REQUESTED');
-        const requested = await BarcodeScanner.requestPermissions();
-        console.log('CAMERA PERMISSION RESULT:', requested.camera);
-        if (requested.camera !== 'granted') {
-          setErrorMessage('Camera permission was denied. Please allow camera access to scan a student QR.');
-          return;
-        }
-      }
-
-      const { barcodes } = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
-      console.log('SCANNER STARTED');
-      const rawValue = barcodes?.[0]?.rawValue || barcodes?.[0]?.displayValue;
-      if (!rawValue) {
-        setErrorMessage('No QR code was detected.');
-        return;
-      }
-
-      handleQrPayload(rawValue);
-    } catch (err: any) {
-      const message = err?.message || 'Unable to scan QR code.';
-      console.error('SCANNER ERROR:', message);
-      setErrorMessage(message.includes('cancel') ? 'Scan cancelled.' : message);
-    } finally {
-      setIsScanningQr(false);
-    }
   };
 
   // Auto-select when querying
@@ -187,7 +102,7 @@ export const StaffIssueCoins: React.FC = () => {
           Issue Coins for Offline Purchases
         </h1>
         <p className="text-xs sm:text-sm text-stone-500 mt-1">
-          Scan the student's rotating QR token or enter their Roll Number, enter the canteen bill amount, and award loyalty coins instantly.
+          Search or select the student manually, enter the canteen bill amount, and award loyalty coins instantly.
         </p>
       </div>
 
@@ -199,21 +114,7 @@ export const StaffIssueCoins: React.FC = () => {
             1. Select Student
           </label>
 
-          <div className="flex flex-col sm:flex-row gap-2 mb-3">
-            <button
-              type="button"
-              onClick={handleScanStudentQr}
-              disabled={isScanningQr}
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              <QrCode className="w-4 h-4" />
-              <span>{isScanningQr ? 'Scanning...' : 'Scan Student QR'}</span>
-            </button>
-
-            <div className="hidden sm:flex items-center px-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
-              OR
-            </div>
-
+          <div className="mb-3">
             <form onSubmit={handleSearchStudent} className="flex flex-1 gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />

@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { StudentQRModal } from './components/StudentQRModal';
 import { AuthModal } from './components/AuthModal';
 
 const StudentHome = lazy(() => import('./pages/student/StudentHome').then(module => ({ default: module.StudentHome })));
@@ -27,7 +26,6 @@ const AdminSettings = lazy(() => import('./pages/admin/AdminSettings').then(modu
 const MainLayout: React.FC = () => {
   const { role, user } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('home');
-  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'student' | 'staff' | 'admin'>('student');
 
@@ -68,7 +66,7 @@ const MainLayout: React.FC = () => {
       switch (currentTab) {
         // Student views
         case 'home':
-          return <StudentHome onNavigate={setCurrentTab} onOpenQR={() => setIsQRModalOpen(true)} />;
+          return <StudentHome onNavigate={setCurrentTab} />;
         case 'wallet':
           return <StudentWallet />;
         case 'rewards':
@@ -76,7 +74,7 @@ const MainLayout: React.FC = () => {
         case 'redemptions':
           return <StudentRedemptions />;
         case 'profile':
-          return <StudentProfile onOpenQR={() => setIsQRModalOpen(true)} />;
+          return <StudentProfile />;
 
         // Staff views
         case 'staff-issue':
@@ -103,7 +101,7 @@ const MainLayout: React.FC = () => {
           return <AdminSettings />;
 
         default:
-          return <StudentHome onNavigate={setCurrentTab} onOpenQR={() => setIsQRModalOpen(true)} />;
+          return <StudentHome onNavigate={setCurrentTab} />;
       }
     })();
 
@@ -113,18 +111,11 @@ const MainLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FDFCFB] text-stone-900 flex flex-col font-sans antialiased selection:bg-amber-100 selection:text-amber-900">
       {/* Top Navbar */}
-      <Navbar
-        onOpenAuth={handleOpenAuth}
-        onOpenQR={() => setIsQRModalOpen(true)}
-      />
+      <Navbar onOpenAuth={handleOpenAuth} />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar */}
-        <Sidebar
-          currentTab={currentTab}
-          onSelectTab={setCurrentTab}
-          onOpenQR={() => setIsQRModalOpen(true)}
-        />
+        <Sidebar currentTab={currentTab} onSelectTab={setCurrentTab} />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-8 md:p-10 pb-24 md:pb-12">
@@ -133,17 +124,7 @@ const MainLayout: React.FC = () => {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav
-        currentTab={currentTab}
-        onSelectTab={setCurrentTab}
-        onOpenQR={() => setIsQRModalOpen(true)}
-      />
-
-      {/* Rotating Student QR Modal */}
-      <StudentQRModal
-        isOpen={isQRModalOpen}
-        onClose={() => setIsQRModalOpen(false)}
-      />
+      <MobileBottomNav currentTab={currentTab} onSelectTab={setCurrentTab} />
 
       {/* Authentication Modal */}
       <AuthModal

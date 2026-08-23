@@ -2,21 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { dataService, type Transaction, type Reward, type Milestone } from '../../services/dataService';
 import { formatCoins, formatINR, formatRelativeTime } from '../../lib/utils';
-import { Sparkles, ArrowUpRight, ArrowDownLeft, Clock, Award, ChevronRight, Gift, QrCode } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { Sparkles, ArrowUpRight, ArrowDownLeft, Clock, Award, ChevronRight, Gift } from 'lucide-react';
 
 interface StudentHomeProps {
   onNavigate: (tab: string) => void;
-  onOpenQR: () => void;
 }
 
-export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigate, onOpenQR }) => {
+export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [tokenTimer, setTokenTimer] = useState(765); // ~12m 45s
-  const [tokenCode, setTokenCode] = useState('CAF-8X29K');
 
   useEffect(() => {
     const load = async () => {
@@ -31,19 +27,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigate, onOpenQR }
     };
     load();
   }, [user]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTokenTimer((prev) => (prev > 1 ? prev - 1 : 900));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatCountdown = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
 
   const currentBalance = user?.wallet?.balance || 0;
   const lifetimeEarned = user?.wallet?.lifetime_earned || 0;
@@ -214,44 +197,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigate, onOpenQR }
 
         {/* Right Column (4 cols) */}
         <div className="lg:col-span-4 flex flex-col gap-6">
-          {/* Purchase Token Widget */}
-          <div className="bg-white rounded-2xl border border-[#E8E1D9] p-6 shadow-sm flex flex-col items-center text-center">
-            <p className="font-bold text-xs uppercase tracking-widest text-stone-400 mb-4">
-              Student Purchase Token
-            </p>
-
-            <div 
-              onClick={onOpenQR}
-              className="w-44 h-44 bg-[#FDF9F3] rounded-2xl p-3 border-2 border-dashed border-[#E8E1D9] flex flex-col items-center justify-center mb-4 cursor-pointer hover:border-amber-400 transition-colors shadow-inner relative group"
-            >
-              <QRCodeSVG
-                value={JSON.stringify({ rollNo: user?.roll_no, token: tokenCode })}
-                size={140}
-                fgColor="#3D2B1F"
-                bgColor="#FDF9F3"
-              />
-              <div className="absolute inset-0 bg-[#3D2B1F]/80 text-amber-300 rounded-2xl opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-xs font-bold gap-1">
-                <QrCode className="w-6 h-6" />
-                <span>Tap to Expand</span>
-              </div>
-            </div>
-
-            <p className="text-xs font-semibold text-[#3D2B1F] mb-1">
-              Show at canteen counter to earn coins
-            </p>
-            <div className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 px-3 py-1 rounded-full font-medium mb-4 border border-amber-200">
-              <Clock className="w-3 h-3 text-amber-600" />
-              <span>Expires in {formatCountdown(tokenTimer)}</span>
-            </div>
-
-            <button
-              onClick={onOpenQR}
-              className="w-full py-2.5 border border-[#E8E1D9] hover:bg-stone-50 rounded-xl text-xs font-bold text-[#3D2B1F] transition-colors"
-            >
-              Expand QR Code
-            </button>
-          </div>
-
           {/* Next Milestone Card */}
           <div className="bg-[#FDF9F3] rounded-2xl p-6 border border-amber-200/80 shadow-sm">
             <div className="flex items-center gap-2 mb-2">

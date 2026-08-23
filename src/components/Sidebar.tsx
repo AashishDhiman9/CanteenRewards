@@ -6,10 +6,9 @@ import type { UserRole } from '../types';
 interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  onOpenQR: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpenQR }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => {
   const { user, role } = useAuth();
 
   const getInitials = (name: string) => {
@@ -77,18 +76,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
             </button>
           );
         })}
-
-        {role === 'student' && (
-          <div className="mt-4 pt-4 border-t border-[#E8E1D9]">
-            <button
-              onClick={onOpenQR}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#3D2B1F] text-amber-400 hover:bg-[#523B2B] rounded-xl text-xs font-bold shadow-md transition-all active:scale-[0.98]"
-            >
-              <QrCode className="w-4 h-4 text-amber-400" />
-              <span>Show My QR</span>
-            </button>
-          </div>
-        )}
       </nav>
 
       {/* User Footer Profile */}

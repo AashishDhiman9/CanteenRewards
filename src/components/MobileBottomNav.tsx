@@ -5,7 +5,6 @@ import { Home, Wallet, Gift, Ticket, User, QrCode, BarChart3, Layers, Award, Arr
 interface MobileBottomNavProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  onOpenQR: () => void;
 }
 
 interface NavItem {
@@ -15,13 +14,12 @@ interface NavItem {
   isAction?: boolean;
 }
 
-export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentTab, onSelectTab, onOpenQR }) => {
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentTab, onSelectTab }) => {
   const { role } = useAuth();
 
   const studentItems: NavItem[] = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
-    { id: 'qr', label: 'QR', icon: QrCode, isAction: true },
     { id: 'rewards', label: 'Rewards', icon: Gift },
     { id: 'redemptions', label: 'Vouchers', icon: Ticket },
   ];
@@ -48,18 +46,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentTab, on
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
-
-          if (item.isAction) {
-            return (
-              <button
-                key={item.id}
-                onClick={onOpenQR}
-                className="flex flex-col items-center justify-center -mt-6 w-12 h-12 rounded-full bg-[#3D2B1F] text-amber-400 shadow-lg border-2 border-white active:scale-95 transition-transform"
-              >
-                <Icon className="w-6 h-6" />
-              </button>
-            );
-          }
 
           return (
             <button
