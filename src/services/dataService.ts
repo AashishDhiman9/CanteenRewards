@@ -158,6 +158,54 @@ const DEFAULT_TRANSACTIONS: Transaction[] = [
     is_demo: true,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
   },
+  {
+    id: 'tx-5',
+    user_id: 'u-student-2',
+    kind: 'earn',
+    coins_delta: 20,
+    bill_amount: 180,
+    slab_id: 'cs-2',
+    reward_id: null,
+    redemption_id: null,
+    reversal_of: null,
+    note: 'Campus Lunch Special',
+    created_by: 'u-staff-1',
+    idempotency_key: 'idemp-5',
+    is_demo: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+  },
+  {
+    id: 'tx-6',
+    user_id: 'u-student-2',
+    kind: 'bonus',
+    coins_delta: 50,
+    bill_amount: null,
+    slab_id: null,
+    reward_id: null,
+    redemption_id: null,
+    reversal_of: null,
+    note: 'Welcome Bonus: Freshman Rewards',
+    created_by: 'u-staff-1',
+    idempotency_key: 'idemp-6',
+    is_demo: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
+  },
+  {
+    id: 'tx-7',
+    user_id: 'u-student-2',
+    kind: 'redeem',
+    coins_delta: -240,
+    bill_amount: null,
+    slab_id: null,
+    reward_id: 'rew-5',
+    redemption_id: 'red-3',
+    reversal_of: null,
+    note: 'Redeemed: Warm Dutch Chocolate Brownie',
+    created_by: 'u-student-2',
+    idempotency_key: 'idemp-7',
+    is_demo: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+  },
 ];
 
 const DEFAULT_REDEMPTIONS: Redemption[] = [
@@ -206,7 +254,19 @@ class DataService {
     this.slabs = JSON.parse(localStorage.getItem('canteen_slabs') || JSON.stringify(DEFAULT_SLABS));
     this.rewards = JSON.parse(localStorage.getItem('canteen_rewards') || JSON.stringify(DEFAULT_REWARDS));
     this.milestones = JSON.parse(localStorage.getItem('canteen_milestones') || JSON.stringify(DEFAULT_MILESTONES));
-    this.transactions = JSON.parse(localStorage.getItem('canteen_transactions') || JSON.stringify(DEFAULT_TRANSACTIONS));
+
+    const storedTransactions = JSON.parse(localStorage.getItem('canteen_transactions') || 'null');
+    const baseTransactions = Array.isArray(storedTransactions) && storedTransactions.length > 0
+      ? storedTransactions
+      : [...DEFAULT_TRANSACTIONS];
+    const userIdsWithTransactions = new Set(baseTransactions.map((tx: Transaction) => tx.user_id));
+    const demoSeedTransactions = DEFAULT_TRANSACTIONS.filter(tx => !userIdsWithTransactions.has(tx.user_id));
+
+    this.transactions = [...baseTransactions, ...demoSeedTransactions];
+    if (!storedTransactions || (Array.isArray(storedTransactions) && storedTransactions.length === 0)) {
+      localStorage.setItem('canteen_transactions', JSON.stringify(this.transactions));
+    }
+
     this.redemptions = JSON.parse(localStorage.getItem('canteen_redemptions') || JSON.stringify(DEFAULT_REDEMPTIONS));
   }
 

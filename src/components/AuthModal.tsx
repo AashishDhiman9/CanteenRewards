@@ -27,7 +27,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
     loginAdmin, 
     availableUsers, 
     switchActiveUser,
-    claimFirstAdmin,
     isLoading 
   } = useAuth();
 
@@ -40,7 +39,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
   // Admin Form State
   const [adminIdOrEmail, setAdminIdOrEmail] = useState('ADMIN-001');
   const [adminPassword, setAdminPassword] = useState('admin123');
-  const [adminClaimMsg, setAdminClaimMsg] = useState<string | null>(null);
 
   // Common Alerts
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +49,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
       setActiveTab(initialTab);
       setError(null);
       setSuccessMsg(null);
-      setAdminClaimMsg(null);
     }
   }, [isOpen, initialTab]);
 
@@ -109,15 +106,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
       setTimeout(() => onClose(), 400);
     } else {
       setError(res.error || 'Admin authentication failed.');
-    }
-  };
-
-  const handleClaimAdminClick = async () => {
-    setError(null);
-    const res = await claimFirstAdmin();
-    setAdminClaimMsg(res.message);
-    if (res.success) {
-      setTimeout(() => onClose(), 1200);
     }
   };
 
@@ -363,12 +351,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
               </div>
             </div>
 
-            {adminClaimMsg && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-bold">
-                {adminClaimMsg}
-              </div>
-            )}
-
             <form onSubmit={handleAdminSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-stone-700 mb-1">Administrator ID or Email</label>
@@ -410,7 +392,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
               </button>
             </form>
 
-            {/* Quick Demo Admin & Claim Admin */}
+            {/* Quick Demo Admin */}
             <div className="pt-3 border-t border-[#E8E1D9] space-y-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
                 1-Click Quick Demo Administrator
@@ -435,14 +417,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
                 </button>
               ))}
 
-              <button
-                type="button"
-                onClick={handleClaimAdminClick}
-                className="w-full py-2 border border-[#E8E1D9] hover:bg-amber-50 text-stone-700 hover:text-amber-900 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 mt-2"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                <span>Bootstrap / Claim First Administrator</span>
-              </button>
             </div>
           </div>
         )}

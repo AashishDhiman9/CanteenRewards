@@ -22,7 +22,6 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   switchUserRole: (newRole: UserRole) => void;
   switchActiveUser: (userId: string) => void;
-  claimFirstAdmin: () => Promise<{ success: boolean; message: string }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -76,6 +75,70 @@ export const INITIAL_DEMO_USERS: UserProfile[] = [
     role: 'admin',
   },
 ];
+
+const seedDemoTransactionsForUser = (userId: string, fullName: string) => {
+  if (!userId) return;
+
+  const saved = localStorage.getItem('canteen_transactions');
+  const existing: Array<Record<string, any>> = saved ? JSON.parse(saved) : [];
+  if (existing.some(tx => tx.user_id === userId)) return;
+
+  const firstName = fullName.split(' ')[0] || 'Student';
+  const now = Date.now();
+
+  const demoTxs = [
+    {
+      id: `tx-demo-${userId}-1`,
+      user_id: userId,
+      kind: 'earn',
+      coins_delta: 30,
+      bill_amount: 220,
+      slab_id: 'cs-3',
+      reward_id: null,
+      redemption_id: null,
+      reversal_of: null,
+      note: `${firstName}'s Lunch Purchase`,
+      created_by: 'u-staff-1',
+      idempotency_key: `demo-${userId}-1`,
+      is_demo: true,
+      created_at: new Date(now - 1000 * 60 * 45).toISOString(),
+    },
+    {
+      id: `tx-demo-${userId}-2`,
+      user_id: userId,
+      kind: 'bonus',
+      coins_delta: 50,
+      bill_amount: null,
+      slab_id: null,
+      reward_id: null,
+      redemption_id: null,
+      reversal_of: null,
+      note: 'Welcome Bonus Reward',
+      created_by: 'u-staff-1',
+      idempotency_key: `demo-${userId}-2`,
+      is_demo: true,
+      created_at: new Date(now - 1000 * 60 * 60 * 10).toISOString(),
+    },
+    {
+      id: `tx-demo-${userId}-3`,
+      user_id: userId,
+      kind: 'redeem',
+      coins_delta: -150,
+      bill_amount: null,
+      slab_id: null,
+      reward_id: 'rew-5',
+      redemption_id: null,
+      reversal_of: null,
+      note: `Redeemed: Warm Dutch Chocolate Brownie`,
+      created_by: userId,
+      idempotency_key: `demo-${userId}-3`,
+      is_demo: true,
+      created_at: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
+    },
+  ];
+
+  localStorage.setItem('canteen_transactions', JSON.stringify([...existing, ...demoTxs]));
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -295,6 +358,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       if (found) {
+        seedDemoTransactionsForUser(found.id, found.full_name || 'Student');
         setUser(found);
         return { success: true };
       }
@@ -314,6 +378,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
 
+      seedDemoTransactionsForUser(newStudent.id, newStudent.full_name);
       setAllUsers(prev => [newStudent, ...prev]);
       setUser(newStudent);
       return { success: true };
@@ -340,7 +405,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       if (existing) {
-        // If the matched user is student, log them in
+        seedDemoTransactionsForUser(existing.id, existing.full_name || 'Student');
         setUser(existing);
         return { success: true };
       }
@@ -364,6 +429,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
 
+      seedDemoTransactionsForUser(newStudent.id, newStudent.full_name);
       setAllUsers(prev => [newStudent, ...prev]);
       setUser(newStudent);
       return { success: true };
@@ -423,6 +489,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatar: existing.avatar || avatar,
           full_name: existing.full_name || name,
         };
+        seedDemoTransactionsForUser(updated.id, updated.full_name || name);
         setUser(updated);
         setAllUsers(prev => prev.map(u => u.id === existing.id ? updated : u));
         return { success: true };
@@ -446,6 +513,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
 
+      seedDemoTransactionsForUser(newGoogleStudent.id, newGoogleStudent.full_name);
       setAllUsers(prev => [newGoogleStudent, ...prev]);
       setUser(newGoogleStudent);
       return { success: true };
@@ -701,6 +769,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               lifetime_spent: 0,
             },
           };
+          seedDemoTransactionsForUser(newProf.id, newProf.full_name);
           setUser(newProf);
           setAllUsers(prev => [newProf, ...prev]);
           return { success: true };
@@ -722,6 +791,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       };
 
+      seedDemoTransactionsForUser(newProf.id, newProf.full_name);
       setAllUsers(prev => [newProf, ...prev]);
       setUser(newProf);
       return { success: true };
@@ -753,26 +823,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const claimFirstAdmin = async () => {
-    if (isSupabaseConfigured && user) {
-      try {
-        const { data, error } = await supabase.rpc('claim_first_admin');
-        if (error) throw error;
-        const res = data as { success: boolean; message: string };
-        if (res.success) {
-          switchUserRole('admin');
-        }
-        return res;
-      } catch (err: any) {
-        return { success: false, message: err.message || 'Could not claim admin' };
-      }
-    }
-
-    // Local
-    switchUserRole('admin');
-    return { success: true, message: 'You have been granted Administrator privileges.' };
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -795,7 +845,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         switchUserRole,
         switchActiveUser,
-        claimFirstAdmin,
         refreshProfile,
       }}
     >
