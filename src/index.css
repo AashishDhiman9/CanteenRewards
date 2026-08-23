@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --espresso: #3D2B1F;
+    --espresso-dark: #2A1D15;
+    --espresso-light: #523B2B;
+    --cream-bg: #FDFCFB;
+    --cream-surface: #FBF8F4;
+    --cream-border: #E8E1D9;
+    --amber-gold: #D97706;
+    --amber-gold-light: #F59E0B;
+    --amber-gold-bg: #FEF3C7;
+  }
+
+  body {
+    background-color: #FDFCFB;
+    color: #1F2937;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+}
+
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.espresso-bg {
+  background-color: #3D2B1F;
+}
+
+.espresso-text {
+  color: #3D2B1F;
+}
+
+.amber-bg {
+  background-color: #D97706;
+}
+
+.amber-text {
+  color: #D97706;
+}
+
+.cream-border {
+  border-color: #E8E1D9;
+}
+
+.cream-bg {
+  background-color: #FDFCFB;
+}
+
+.warm-card-bg {
+  background-color: #FDF9F3;
+}
+
+/* Custom scrollbars for slick mobile/desktop feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FDFCFB;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E8E1D9;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D97706;
+}

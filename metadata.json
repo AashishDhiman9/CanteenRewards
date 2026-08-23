@@ -1,0 +1,6 @@
+{
+  "name": "Campus Canteen Rewards",
+  "description": "Mobile-first PWA loyalty and rewards system for college canteens and cafes with coin earning slabs, rotating student QR tokens, and role-based staff and admin dashboards.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
