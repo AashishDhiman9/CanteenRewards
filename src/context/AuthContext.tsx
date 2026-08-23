@@ -144,6 +144,7 @@ const seedDemoTransactionsForUser = (userId: string, fullName: string) => {
 };
 
 const AUTH_CALLBACK_URL = 'campuscanteen://auth/callback';
+let nativeOAuthCallbackInFlight = false;
 
 const getOAuthRedirectUrl = () => {
   if (Capacitor.isNativePlatform()) {
@@ -154,6 +155,9 @@ const getOAuthRedirectUrl = () => {
 
 const handleNativeOAuthCallback = async (callbackUrl: string) => {
   if (!callbackUrl.startsWith(AUTH_CALLBACK_URL)) return false;
+  if (nativeOAuthCallbackInFlight) return false;
+
+  nativeOAuthCallbackInFlight = true;
 
   try {
     console.debug('[Auth] Native callback received');
@@ -182,7 +186,6 @@ const handleNativeOAuthCallback = async (callbackUrl: string) => {
     }
 
     if (code) {
-      // exchangeCodeForSession uses the stored PKCE verifier in the webview context
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         console.warn('[Auth] exchangeCodeForSession error', error.message || error);
@@ -197,6 +200,8 @@ const handleNativeOAuthCallback = async (callbackUrl: string) => {
     }
   } catch (error) {
     console.error('[Auth] Native OAuth callback error:', error);
+  } finally {
+    nativeOAuthCallbackInFlight = false;
   }
 
   return false;
@@ -259,19 +264,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let appUrlListener: { remove: () => void } | null = null;
 
     if (Capacitor.isNativePlatform()) {
-      // Register listener first so deep-links delivered at startup are handled
       App.addListener('appUrlOpen', async ({ url }) => {
+        if (nativeOAuthCallbackInFlight) return;
         try {
           console.debug('[Auth] appUrlOpen received');
           const handled = await handleNativeOAuthCallback(url);
           console.debug('[Auth] appUrlOpen handled:', handled);
           deepLinkHandled = handled || deepLinkHandled;
           if (handled) {
-            // After restoring session, re-run the session fetch flow
             try {
               const { data: { session } } = await supabase.auth.getSession();
               if (session?.user) {
-                // reuse the same session hydration logic used elsewhere
                 const checkSession = async () => {
                   const { data: { session: freshSession } } = await supabase.auth.getSession();
                   if (freshSession?.user) {
@@ -603,15 +606,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       if (isSupabaseConfigured && !googleAccount?.email) {
+        const nativeGoogleAuthOptions = Capacitor.isNativePlatform()
+          ? {
+              redirectTo: 'campuscanteen://auth/callback',
+              skipBrowserRedirect: true,
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'select_account',
+              },
+            }
+          : {
+              redirectTo: getOAuthRedirectUrl(),
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'select_account',
+              },
+            };
+
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: {
-            redirectTo: getOAuthRedirectUrl(),
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'select_account',
-            },
-          },
+          options: nativeGoogleAuthOptions,
         });
 
         if (error) {

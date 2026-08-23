@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+android/local.properties
+android/*.jks
+android/**/*.jks
