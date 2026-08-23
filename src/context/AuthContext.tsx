@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { UserProfile, UserRole } from '../types';
 
@@ -140,6 +143,58 @@ const seedDemoTransactionsForUser = (userId: string, fullName: string) => {
   localStorage.setItem('canteen_transactions', JSON.stringify([...existing, ...demoTxs]));
 };
 
+const AUTH_CALLBACK_URL = 'campuscanteen://auth/callback';
+
+const getOAuthRedirectUrl = () => {
+  if (Capacitor.isNativePlatform()) {
+    return AUTH_CALLBACK_URL;
+  }
+  return window.location.origin;
+};
+
+const handleNativeOAuthCallback = async (callbackUrl: string) => {
+  if (!callbackUrl.startsWith(AUTH_CALLBACK_URL)) return false;
+
+  try {
+    const parsedUrl = new URL(callbackUrl);
+    const searchParams = new URLSearchParams(parsedUrl.search.replace(/^\?/, ''));
+    const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
+
+    const accessToken = searchParams.get('access_token') || hashParams.get('access_token');
+    const refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
+    const code = searchParams.get('code') || hashParams.get('code');
+
+    if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (error) throw error;
+      try {
+        await Browser.close();
+      } catch {
+        // ignore close errors when the auth browser is already closed
+      }
+      return true;
+    }
+
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      try {
+        await Browser.close();
+      } catch {
+        // ignore close errors when the auth browser is already closed
+      }
+      return true;
+    }
+  } catch (error) {
+    console.error('Native OAuth callback error:', error);
+  }
+
+  return false;
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -193,92 +248,161 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
+    if (Capacitor.isNativePlatform()) {
+      let appUrlListener: { remove: () => void } | null = null;
+
+      App.addListener('appUrlOpen', async ({ url }) => {
+        const handled = await handleNativeOAuthCallback(url);
+        if (handled) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            const checkSession = async () => {
+              const { data: { session: freshSession } } = await supabase.auth.getSession();
+              if (freshSession?.user) {
+                const { data: profile } = await (supabase as any)
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', freshSession.user.id)
+                  .single();
+
+                const { data: roleData } = await (supabase as any)
+                  .from('user_roles')
+                  .select('role')
+                  .eq('user_id', freshSession.user.id)
+                  .maybeSingle();
+
+                const { data: walletData } = await (supabase as any)
+                  .from('wallets')
+                  .select('*')
+                  .eq('user_id', freshSession.user.id)
+                  .maybeSingle();
+
+                if (profile) {
+                  setUser({
+                    id: freshSession.user.id,
+                    full_name: profile.full_name,
+                    roll_no: profile.roll_no,
+                    email: profile.email || freshSession.user.email || null,
+                    avatar: profile.avatar || null,
+                    role: (roleData?.role as UserRole) || 'student',
+                    wallet: walletData ? {
+                      balance: walletData.balance,
+                      lifetime_earned: walletData.lifetime_earned,
+                      lifetime_spent: walletData.lifetime_spent,
+                    } : {
+                      balance: 50,
+                      lifetime_earned: 50,
+                      lifetime_spent: 0,
+                    },
+                  });
+                }
+              }
+            };
+            await checkSession();
+          }
+        }
+      }).then((listener) => {
+        appUrlListener = listener;
+      });
+
+      return () => {
+        appUrlListener?.remove();
+      };
+    }
+
     const checkSession = async () => {
       setIsLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          // Fetch profile & role
-          const { data: profile } = await (supabase as any)
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+        if (!session?.user) {
+          return;
+        }
 
-          const { data: roleData } = await (supabase as any)
+        const userId = session.user.id;
+        const [profileResult, roleResult, walletResult] = await Promise.allSettled([
+          (supabase as any)
+            .from('profiles')
+            .select('id, full_name, roll_no, email, avatar')
+            .eq('id', userId)
+            .single(),
+          (supabase as any)
             .from('user_roles')
             .select('role')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-
-          const { data: walletData } = await (supabase as any)
+            .eq('user_id', userId)
+            .maybeSingle(),
+          (supabase as any)
             .from('wallets')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+            .select('balance, lifetime_earned, lifetime_spent')
+            .eq('user_id', userId)
+            .maybeSingle(),
+        ]);
 
-          if (profile) {
-            setUser({
-              id: session.user.id,
-              full_name: profile.full_name,
-              roll_no: profile.roll_no,
-              email: profile.email || session.user.email || null,
-              avatar: profile.avatar || null,
-              role: (roleData?.role as UserRole) || 'student',
-              wallet: walletData ? {
-                balance: walletData.balance,
-                lifetime_earned: walletData.lifetime_earned,
-                lifetime_spent: walletData.lifetime_spent,
-              } : {
-                balance: 50,
-                lifetime_earned: 50,
-                lifetime_spent: 0,
-              },
-            });
-          } else {
-            // New Google OAuth User via Supabase (profile not yet in table)
-            const meta = session.user.user_metadata || {};
-            const googleName = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Student';
-            const googleAvatar = meta.avatar_url || meta.picture || null;
-            const generatedRoll = `2024-${Math.floor(100 + Math.random() * 900)}`;
+        const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null;
+        const roleData = roleResult.status === 'fulfilled' ? roleResult.value.data : null;
+        const walletData = walletResult.status === 'fulfilled' ? walletResult.value.data : null;
 
-            const newGoogleUser: UserProfile = {
-              id: session.user.id,
+        if (profile) {
+          setUser({
+            id: userId,
+            full_name: profile.full_name,
+            roll_no: profile.roll_no,
+            email: profile.email || session.user.email || null,
+            avatar: profile.avatar || null,
+            role: (roleData?.role as UserRole) || 'student',
+            wallet: walletData ? {
+              balance: walletData.balance,
+              lifetime_earned: walletData.lifetime_earned,
+              lifetime_spent: walletData.lifetime_spent,
+            } : {
+              balance: 50,
+              lifetime_earned: 50,
+              lifetime_spent: 0,
+            },
+          });
+          return;
+        }
+
+        const meta = session.user.user_metadata || {};
+        const googleName = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Student';
+        const googleAvatar = meta.avatar_url || meta.picture || null;
+        const generatedRoll = `2024-${Math.floor(100 + Math.random() * 900)}`;
+
+        const newGoogleUser: UserProfile = {
+          id: userId,
+          full_name: googleName,
+          roll_no: generatedRoll,
+          email: session.user.email || null,
+          avatar: googleAvatar,
+          auth_provider: 'google',
+          role: (roleData?.role as UserRole) || 'student',
+          wallet: {
+            balance: 50,
+            lifetime_earned: 50,
+            lifetime_spent: 0,
+          },
+        };
+
+        setUser(newGoogleUser);
+        setAllUsers(prev => [newGoogleUser, ...prev.filter(u => u.id !== newGoogleUser.id)]);
+
+        try {
+          await Promise.all([
+            (supabase as any).from('profiles').upsert({
+              id: userId,
               full_name: googleName,
               roll_no: generatedRoll,
-              email: session.user.email || null,
+              email: session.user.email,
               avatar: googleAvatar,
-              auth_provider: 'google',
-              role: (roleData?.role as UserRole) || 'student',
-              wallet: {
-                balance: 50,
-                lifetime_earned: 50,
-                lifetime_spent: 0,
-              },
-            };
-
-            setUser(newGoogleUser);
-            setAllUsers(prev => [newGoogleUser, ...prev.filter(u => u.id !== newGoogleUser.id)]);
-
-            // Attempt async upsert to Supabase
-            try {
-              await (supabase as any).from('profiles').upsert({
-                id: session.user.id,
-                full_name: googleName,
-                roll_no: generatedRoll,
-                email: session.user.email,
-                avatar: googleAvatar,
-              });
-              await (supabase as any).from('wallets').upsert({
-                user_id: session.user.id,
-                balance: 50,
-                lifetime_earned: 50,
-                lifetime_spent: 0,
-              });
-            } catch (upsertErr) {
-              console.warn('Profile sync notice:', upsertErr);
-            }
-          }
+            }),
+            (supabase as any).from('wallets').upsert({
+              user_id: userId,
+              balance: 50,
+              lifetime_earned: 50,
+              lifetime_spent: 0,
+            }),
+          ]);
+        } catch (upsertErr) {
+          console.warn('Profile sync notice:', upsertErr);
         }
       } catch (err) {
         console.error('Supabase session load error:', err);
@@ -447,18 +571,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin,
+            redirectTo: getOAuthRedirectUrl(),
             queryParams: {
               access_type: 'offline',
               prompt: 'select_account',
             },
           },
         });
+
         if (error) {
           console.warn('Supabase Google OAuth response:', error.message);
           return { success: false, error: error.message };
-        } else if (data?.url) {
-          // Prevent iframe embedding issues by directing top window if in iframe
+        }
+
+        if (data?.url) {
+          if (Capacitor.isNativePlatform()) {
+            try {
+              await Browser.open({ url: data.url });
+            } catch (browserError: any) {
+              console.error('Capacitor Browser open error:', browserError);
+              return { success: false, error: browserError?.message || 'Unable to open Google sign-in. Please try again.' };
+            }
+            return { success: true };
+          }
+
           try {
             if (window.self !== window.top) {
               window.top!.location.href = data.url;

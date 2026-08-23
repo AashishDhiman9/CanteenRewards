@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Campus Canteen Rewards</string>
+    <string name="title_activity_main">Campus Canteen Rewards</string>
+    <string name="package_name">com.campuscanteen.rewards</string>
+    <string name="custom_url_scheme">com.campuscanteen.rewards</string>
+</resources>
