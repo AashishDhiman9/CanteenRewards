@@ -1002,6 +1002,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchActiveUser = (userId: string) => {
+    if (!user) return;
+
+    const allowedUserIds = new Set<string>([
+      user.id,
+      INITIAL_DEMO_USERS[0]?.id,
+    ].filter(Boolean) as string[]);
+
+    if (!allowedUserIds.has(userId)) {
+      return;
+    }
+
     const target = allUsers.find(u => u.id === userId);
     if (target) {
       setUser(target);

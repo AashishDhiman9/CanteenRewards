@@ -31,6 +31,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
+  const permittedSwitchProfiles = React.useMemo(() => {
+    if (!user) return [] as typeof availableUsers;
+
+    const demoAccount = availableUsers.find((candidate) =>
+      candidate.id === 'u-student-1' ||
+      candidate.email?.toLowerCase() === 'aashishdhiman2021@gmail.com' ||
+      candidate.full_name.toLowerCase() === 'aashish dhiman'
+    );
+
+    const permitted = [user, demoAccount].filter(Boolean) as typeof availableUsers;
+    const unique = permitted.filter((account, index, array) =>
+      array.findIndex(item => item.id === account.id) === index
+    );
+
+    return unique;
+  }, [availableUsers, user]);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -219,7 +236,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400 px-1">
                       Quick Profile Switcher
                     </p>
-                    {availableUsers.map((u) => (
+                    {permittedSwitchProfiles.map((u) => (
                       <button
                         key={u.id}
                         onClick={(e) => {

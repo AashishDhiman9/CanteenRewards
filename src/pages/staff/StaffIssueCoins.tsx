@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../context/AuthContext';
 import { dataService, type CoinSlab } from '../../services/dataService';
 import { formatCoins, formatINR } from '../../lib/utils';
@@ -13,6 +15,7 @@ export const StaffIssueCoins: React.FC = () => {
   const [billAmount, setBillAmount] = useState<number | ''>(240);
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isScanningQr, setIsScanningQr] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -23,6 +26,95 @@ export const StaffIssueCoins: React.FC = () => {
     };
     load();
   }, []);
+
+  const selectStudent = (student: any) => {
+    setSelectedStudent(student);
+    setSearchQuery(student.roll_no);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
+  const handleQrPayload = (payload: string) => {
+    try {
+      const parsed = JSON.parse(payload);
+      if (!parsed || parsed.type !== 'CAMPUS_CANTEEN_STUDENT_TOKEN') {
+        throw new Error('Invalid Campus Canteen Student QR');
+      }
+
+      if (!parsed.userId) {
+        throw new Error('Student ID missing from QR');
+      }
+
+      const match = availableUsers.find(
+        (u) => u.id === parsed.userId || u.roll_no.toLowerCase() === String(parsed.rollNo || '').toLowerCase()
+      );
+
+      if (!match) {
+        throw new Error('Student not found');
+      }
+
+      selectStudent(match);
+      return;
+    } catch (err: any) {
+      setSelectedStudent(null);
+      setErrorMessage(err?.message || 'Invalid Campus Canteen Student QR');
+      return;
+    }
+  };
+
+  const handleScanStudentQr = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    console.log('SCAN BUTTON CLICKED');
+
+    if (!Capacitor.isNativePlatform()) {
+      console.log('STARTING QR SCANNER');
+      const pasted = window.prompt('Paste Campus Canteen Student QR JSON to continue');
+      if (!pasted) return;
+      handleQrPayload(pasted.trim());
+      return;
+    }
+
+    try {
+      console.log('STARTING QR SCANNER');
+      setIsScanningQr(true);
+      const supports = await BarcodeScanner.isSupported();
+      console.log('SCANNER SUPPORT:', supports?.supported ? 'supported' : 'unsupported');
+      if (!supports.supported) {
+        setErrorMessage('QR scanning is not supported on this device.');
+        return;
+      }
+
+      const permissions = await BarcodeScanner.checkPermissions();
+      console.log('CAMERA PERMISSION CHECKED:', permissions.camera);
+      if (permissions.camera !== 'granted') {
+        console.log('CAMERA PERMISSION REQUESTED');
+        const requested = await BarcodeScanner.requestPermissions();
+        console.log('CAMERA PERMISSION RESULT:', requested.camera);
+        if (requested.camera !== 'granted') {
+          setErrorMessage('Camera permission was denied. Please allow camera access to scan a student QR.');
+          return;
+        }
+      }
+
+      const { barcodes } = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
+      console.log('SCANNER STARTED');
+      const rawValue = barcodes?.[0]?.rawValue || barcodes?.[0]?.displayValue;
+      if (!rawValue) {
+        setErrorMessage('No QR code was detected.');
+        return;
+      }
+
+      handleQrPayload(rawValue);
+    } catch (err: any) {
+      const message = err?.message || 'Unable to scan QR code.';
+      console.error('SCANNER ERROR:', message);
+      setErrorMessage(message.includes('cancel') ? 'Scan cancelled.' : message);
+    } finally {
+      setIsScanningQr(false);
+    }
+  };
 
   // Auto-select when querying
   const handleSearchStudent = (e?: React.FormEvent) => {
@@ -36,7 +128,7 @@ export const StaffIssueCoins: React.FC = () => {
     );
 
     if (student) {
-      setSelectedStudent(student);
+      selectStudent(student);
     } else {
       setSelectedStudent(null);
       setErrorMessage(`No registered student found matching "${searchQuery}".`);
@@ -104,26 +196,43 @@ export const StaffIssueCoins: React.FC = () => {
         {/* Step 1: Student Lookup */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-2">
-            1. Search Student by Roll Number or Name
+            1. Select Student
           </label>
-          <form onSubmit={handleSearchStudent} className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter Roll No (e.g. 2024-812 or 2024-405)..."
-                className="w-full pl-10 pr-4 py-3 bg-[#FDF9F3] border border-[#E8E1D9] rounded-xl text-sm focus:outline-none focus:border-amber-600 font-mono"
-              />
-            </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
             <button
-              type="submit"
-              className="px-6 py-3 bg-[#3D2B1F] text-white rounded-xl text-xs font-bold hover:bg-[#523B2B] transition-colors"
+              type="button"
+              onClick={handleScanStudentQr}
+              disabled={isScanningQr}
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Lookup
+              <QrCode className="w-4 h-4" />
+              <span>{isScanningQr ? 'Scanning...' : 'Scan Student QR'}</span>
             </button>
-          </form>
+
+            <div className="hidden sm:flex items-center px-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              OR
+            </div>
+
+            <form onSubmit={handleSearchStudent} className="flex flex-1 gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by roll number or name"
+                  className="w-full pl-10 pr-4 py-3 bg-[#FDF9F3] border border-[#E8E1D9] rounded-xl text-sm focus:outline-none focus:border-amber-600 font-mono"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-6 py-3 bg-[#3D2B1F] text-white rounded-xl text-xs font-bold hover:bg-[#523B2B] transition-colors"
+              >
+                Lookup
+              </button>
+            </form>
+          </div>
 
           {/* Quick Select demo pills */}
           <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -133,9 +242,7 @@ export const StaffIssueCoins: React.FC = () => {
                 key={s.id}
                 type="button"
                 onClick={() => {
-                  setSearchQuery(s.roll_no);
-                  setSelectedStudent(s);
-                  setErrorMessage(null);
+                  selectStudent(s);
                 }}
                 className={`text-xs px-2.5 py-1 rounded-lg border font-mono transition-colors ${
                   selectedStudent?.id === s.id
