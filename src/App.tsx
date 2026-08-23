@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -6,26 +6,23 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { StudentQRModal } from './components/StudentQRModal';
 import { AuthModal } from './components/AuthModal';
 
-// Student Pages
-import { StudentHome } from './pages/student/StudentHome';
-import { StudentWallet } from './pages/student/StudentWallet';
-import { StudentRewards } from './pages/student/StudentRewards';
-import { StudentRedemptions } from './pages/student/StudentRedemptions';
-import { StudentProfile } from './pages/student/StudentProfile';
+const StudentHome = lazy(() => import('./pages/student/StudentHome').then(module => ({ default: module.StudentHome })));
+const StudentWallet = lazy(() => import('./pages/student/StudentWallet').then(module => ({ default: module.StudentWallet })));
+const StudentRewards = lazy(() => import('./pages/student/StudentRewards').then(module => ({ default: module.StudentRewards })));
+const StudentRedemptions = lazy(() => import('./pages/student/StudentRedemptions').then(module => ({ default: module.StudentRedemptions })));
+const StudentProfile = lazy(() => import('./pages/student/StudentProfile').then(module => ({ default: module.StudentProfile })));
 
-// Staff Pages
-import { StaffIssueCoins } from './pages/staff/StaffIssueCoins';
-import { StaffVerifyReward } from './pages/staff/StaffVerifyReward';
-import { StaffHistory } from './pages/staff/StaffHistory';
+const StaffIssueCoins = lazy(() => import('./pages/staff/StaffIssueCoins').then(module => ({ default: module.StaffIssueCoins })));
+const StaffVerifyReward = lazy(() => import('./pages/staff/StaffVerifyReward').then(module => ({ default: module.StaffVerifyReward })));
+const StaffHistory = lazy(() => import('./pages/staff/StaffHistory').then(module => ({ default: module.StaffHistory })));
 
-// Admin Pages
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AdminSlabs } from './pages/admin/AdminSlabs';
-import { AdminRewards } from './pages/admin/AdminRewards';
-import { AdminMilestones } from './pages/admin/AdminMilestones';
-import { AdminTransactions } from './pages/admin/AdminTransactions';
-import { AdminUsers } from './pages/admin/AdminUsers';
-import { AdminSettings } from './pages/admin/AdminSettings';
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const AdminSlabs = lazy(() => import('./pages/admin/AdminSlabs').then(module => ({ default: module.AdminSlabs })));
+const AdminRewards = lazy(() => import('./pages/admin/AdminRewards').then(module => ({ default: module.AdminRewards })));
+const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones').then(module => ({ default: module.AdminMilestones })));
+const AdminTransactions = lazy(() => import('./pages/admin/AdminTransactions').then(module => ({ default: module.AdminTransactions })));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then(module => ({ default: module.AdminUsers })));
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings').then(module => ({ default: module.AdminSettings })));
 
 const MainLayout: React.FC = () => {
   const { role, user } = useAuth();
@@ -58,47 +55,59 @@ const MainLayout: React.FC = () => {
     }
   }, [role]);
 
+  const loadingFallback = (
+    <div className="flex min-h-[260px] items-center justify-center">
+      <div className="rounded-xl border border-[#E8E1D9] bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500 shadow-sm">
+        Loading...
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
-    switch (currentTab) {
-      // Student views
-      case 'home':
-        return <StudentHome onNavigate={setCurrentTab} onOpenQR={() => setIsQRModalOpen(true)} />;
-      case 'wallet':
-        return <StudentWallet />;
-      case 'rewards':
-        return <StudentRewards />;
-      case 'redemptions':
-        return <StudentRedemptions />;
-      case 'profile':
-        return <StudentProfile onOpenQR={() => setIsQRModalOpen(true)} />;
+    const content = (() => {
+      switch (currentTab) {
+        // Student views
+        case 'home':
+          return <StudentHome onNavigate={setCurrentTab} onOpenQR={() => setIsQRModalOpen(true)} />;
+        case 'wallet':
+          return <StudentWallet />;
+        case 'rewards':
+          return <StudentRewards />;
+        case 'redemptions':
+          return <StudentRedemptions />;
+        case 'profile':
+          return <StudentProfile onOpenQR={() => setIsQRModalOpen(true)} />;
 
-      // Staff views
-      case 'staff-issue':
-        return <StaffIssueCoins />;
-      case 'staff-verify':
-        return <StaffVerifyReward />;
-      case 'staff-history':
-        return <StaffHistory />;
+        // Staff views
+        case 'staff-issue':
+          return <StaffIssueCoins />;
+        case 'staff-verify':
+          return <StaffVerifyReward />;
+        case 'staff-history':
+          return <StaffHistory />;
 
-      // Admin views
-      case 'admin-dashboard':
-        return <AdminDashboard onNavigate={setCurrentTab} />;
-      case 'admin-slabs':
-        return <AdminSlabs />;
-      case 'admin-rewards':
-        return <AdminRewards />;
-      case 'admin-milestones':
-        return <AdminMilestones />;
-      case 'admin-transactions':
-        return <AdminTransactions />;
-      case 'admin-users':
-        return <AdminUsers />;
-      case 'admin-settings':
-        return <AdminSettings />;
+        // Admin views
+        case 'admin-dashboard':
+          return <AdminDashboard onNavigate={setCurrentTab} />;
+        case 'admin-slabs':
+          return <AdminSlabs />;
+        case 'admin-rewards':
+          return <AdminRewards />;
+        case 'admin-milestones':
+          return <AdminMilestones />;
+        case 'admin-transactions':
+          return <AdminTransactions />;
+        case 'admin-users':
+          return <AdminUsers />;
+        case 'admin-settings':
+          return <AdminSettings />;
 
-      default:
-        return <StudentHome onNavigate={setCurrentTab} onOpenQR={() => setIsQRModalOpen(true)} />;
-    }
+        default:
+          return <StudentHome onNavigate={setCurrentTab} onOpenQR={() => setIsQRModalOpen(true)} />;
+      }
+    })();
+
+    return <Suspense fallback={loadingFallback}>{content}</Suspense>;
   };
 
   return (
