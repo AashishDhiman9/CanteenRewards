@@ -156,6 +156,7 @@ const handleNativeOAuthCallback = async (callbackUrl: string) => {
   if (!callbackUrl.startsWith(AUTH_CALLBACK_URL)) return false;
 
   try {
+    console.debug('[Auth] Native callback received');
     const parsedUrl = new URL(callbackUrl);
     const searchParams = new URLSearchParams(parsedUrl.search.replace(/^\?/, ''));
     const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
@@ -163,6 +164,8 @@ const handleNativeOAuthCallback = async (callbackUrl: string) => {
     const accessToken = searchParams.get('access_token') || hashParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
     const code = searchParams.get('code') || hashParams.get('code');
+
+    console.debug('[Auth] callback contains code:', !!code, 'tokens:', !!accessToken, !!refreshToken);
 
     if (accessToken && refreshToken) {
       const { error } = await supabase.auth.setSession({
@@ -179,8 +182,12 @@ const handleNativeOAuthCallback = async (callbackUrl: string) => {
     }
 
     if (code) {
+      // exchangeCodeForSession uses the stored PKCE verifier in the webview context
       const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) throw error;
+      if (error) {
+        console.warn('[Auth] exchangeCodeForSession error', error.message || error);
+        throw error;
+      }
       try {
         await Browser.close();
       } catch {
@@ -189,7 +196,7 @@ const handleNativeOAuthCallback = async (callbackUrl: string) => {
       return true;
     }
   } catch (error) {
-    console.error('Native OAuth callback error:', error);
+    console.error('[Auth] Native OAuth callback error:', error);
   }
 
   return false;
@@ -248,71 +255,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
+    let deepLinkHandled = false;
+    let appUrlListener: { remove: () => void } | null = null;
+
     if (Capacitor.isNativePlatform()) {
-      let appUrlListener: { remove: () => void } | null = null;
-
+      // Register listener first so deep-links delivered at startup are handled
       App.addListener('appUrlOpen', async ({ url }) => {
-        const handled = await handleNativeOAuthCallback(url);
-        if (handled) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const checkSession = async () => {
-              const { data: { session: freshSession } } = await supabase.auth.getSession();
-              if (freshSession?.user) {
-                const { data: profile } = await (supabase as any)
-                  .from('profiles')
-                  .select('*')
-                  .eq('id', freshSession.user.id)
-                  .single();
+        try {
+          console.debug('[Auth] appUrlOpen received');
+          const handled = await handleNativeOAuthCallback(url);
+          console.debug('[Auth] appUrlOpen handled:', handled);
+          deepLinkHandled = handled || deepLinkHandled;
+          if (handled) {
+            // After restoring session, re-run the session fetch flow
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) {
+                // reuse the same session hydration logic used elsewhere
+                const checkSession = async () => {
+                  const { data: { session: freshSession } } = await supabase.auth.getSession();
+                  if (freshSession?.user) {
+                    const { data: profile } = await (supabase as any)
+                      .from('profiles')
+                      .select('id, full_name, roll_no, email, avatar')
+                      .eq('id', freshSession.user.id)
+                      .single();
 
-                const { data: roleData } = await (supabase as any)
-                  .from('user_roles')
-                  .select('role')
-                  .eq('user_id', freshSession.user.id)
-                  .maybeSingle();
+                    const { data: roleData } = await (supabase as any)
+                      .from('user_roles')
+                      .select('role')
+                      .eq('user_id', freshSession.user.id)
+                      .maybeSingle();
 
-                const { data: walletData } = await (supabase as any)
-                  .from('wallets')
-                  .select('*')
-                  .eq('user_id', freshSession.user.id)
-                  .maybeSingle();
+                    const { data: walletData } = await (supabase as any)
+                      .from('wallets')
+                      .select('balance, lifetime_earned, lifetime_spent')
+                      .eq('user_id', freshSession.user.id)
+                      .maybeSingle();
 
-                if (profile) {
-                  setUser({
-                    id: freshSession.user.id,
-                    full_name: profile.full_name,
-                    roll_no: profile.roll_no,
-                    email: profile.email || freshSession.user.email || null,
-                    avatar: profile.avatar || null,
-                    role: (roleData?.role as UserRole) || 'student',
-                    wallet: walletData ? {
-                      balance: walletData.balance,
-                      lifetime_earned: walletData.lifetime_earned,
-                      lifetime_spent: walletData.lifetime_spent,
-                    } : {
-                      balance: 50,
-                      lifetime_earned: 50,
-                      lifetime_spent: 0,
-                    },
-                  });
-                }
+                    if (profile) {
+                      setUser({
+                        id: freshSession.user.id,
+                        full_name: profile.full_name,
+                        roll_no: profile.roll_no,
+                        email: profile.email || freshSession.user.email || null,
+                        avatar: profile.avatar || null,
+                        role: (roleData?.role as UserRole) || 'student',
+                        wallet: walletData ? {
+                          balance: walletData.balance,
+                          lifetime_earned: walletData.lifetime_earned,
+                          lifetime_spent: walletData.lifetime_spent,
+                        } : {
+                          balance: 50,
+                          lifetime_earned: 50,
+                          lifetime_spent: 0,
+                        },
+                      });
+                    }
+                  }
+                };
+                await checkSession();
               }
-            };
-            await checkSession();
+            } catch (e) {
+              console.warn('[Auth] session fetch after deep-link failed', e);
+            }
           }
+        } catch (e) {
+          console.error('[Auth] appUrlOpen handler error', e);
         }
       }).then((listener) => {
         appUrlListener = listener;
       });
-
-      return () => {
-        appUrlListener?.remove();
-      };
     }
+
+    const waitForDeepLinkOrTimeout = () => new Promise(resolve => {
+      const timeout = setTimeout(() => resolve(false), 350);
+      // if deepLinkHandled flips to true by listener, resolve sooner
+      const interval = setInterval(() => {
+        if (deepLinkHandled) {
+          clearTimeout(timeout);
+          clearInterval(interval);
+          resolve(true);
+        }
+      }, 50);
+    });
 
     const checkSession = async () => {
       setIsLoading(true);
       try {
+        // give a short window for appUrlOpen to arrive and be processed
+        if (Capacitor.isNativePlatform()) {
+          await waitForDeepLinkOrTimeout();
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           return;
