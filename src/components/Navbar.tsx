@@ -26,12 +26,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
     switchUserRole, 
     availableUsers, 
     switchActiveUser, 
-    logout, 
-    claimFirstAdmin 
+    logout 
   } = useAuth();
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [claimStatus, setClaimStatus] = useState<string | null>(null);
 
   const getInitials = (name: string) => {
     return name
@@ -40,12 +38,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
       .join('')
       .substring(0, 2)
       .toUpperCase();
-  };
-
-  const handleClaimAdmin = async () => {
-    const res = await claimFirstAdmin();
-    setClaimStatus(res.message);
-    setTimeout(() => setClaimStatus(null), 3000);
   };
 
   return (
@@ -245,20 +237,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
                     ))}
                   </div>
 
-                  {/* Sign Out & Claim Admin */}
+                  {/* Sign Out */}
                   <div className="pt-2 border-t border-[#E8E1D9] space-y-1">
-                    {user.role !== 'admin' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleClaimAdmin();
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-800 hover:bg-amber-50 flex items-center gap-2"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Claim First Admin</span>
-                      </button>
-                    )}
                     <button
                       onClick={() => logout()}
                       className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2"
@@ -292,12 +272,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, onOpenQR }) => {
         </div>
       </div>
 
-      {/* Admin Claim Banner notification */}
-      {claimStatus && (
-        <div className="mt-2 text-center text-xs font-bold py-1.5 px-3 bg-amber-100 text-amber-900 rounded-lg max-w-xl mx-auto border border-amber-200">
-          {claimStatus}
-        </div>
-      )}
     </header>
   );
 };

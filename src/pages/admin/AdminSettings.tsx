@@ -2,18 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { dataService } from '../../services/dataService';
-import { Settings, Database, ShieldCheck, Download, RotateCcw, Check, Sparkles, Server } from 'lucide-react';
+import { Settings, Database, Download, RotateCcw } from 'lucide-react';
 
 export const AdminSettings: React.FC = () => {
-  const { isDemoMode, setDemoMode, claimFirstAdmin } = useAuth();
-  const [claimStatus, setClaimStatus] = useState<string | null>(null);
   const [resetStatus, setResetStatus] = useState<string | null>(null);
-
-  const handleClaim = async () => {
-    const res = await claimFirstAdmin();
-    setClaimStatus(res.message);
-    setTimeout(() => setClaimStatus(null), 4000);
-  };
 
   const handleResetData = () => {
     if (!confirm('Reset local storage to fresh seed data?')) return;
@@ -52,15 +44,9 @@ export const AdminSettings: React.FC = () => {
           System Administration
         </h1>
         <p className="text-xs sm:text-sm text-stone-500 mt-1">
-          Configure backend database connectivity, bootstrap first-admin rights, and export financial audit logs.
+          Configure backend database connectivity and export financial audit logs.
         </p>
       </div>
-
-      {claimStatus && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-bold">
-          {claimStatus}
-        </div>
-      )}
 
       {resetStatus && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 font-bold">
@@ -92,28 +78,6 @@ export const AdminSettings: React.FC = () => {
           }`}>
             {isSupabaseConfigured ? 'Connected' : 'Local Storage Engine'}
           </span>
-        </div>
-
-        {/* First Admin Claim */}
-        <div className="bg-white rounded-3xl border border-[#E8E1D9] p-6 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-[#3D2B1F]">Bootstrap First Admin</h3>
-              <p className="text-xs text-stone-500">
-                Grants administrator privileges if no admin exists in the system.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleClaim}
-            className="px-4 py-2 bg-[#3D2B1F] text-white hover:bg-[#523B2B] rounded-xl text-xs font-bold transition-colors"
-          >
-            Claim Admin Role
-          </button>
         </div>
 
         {/* Export Data */}
